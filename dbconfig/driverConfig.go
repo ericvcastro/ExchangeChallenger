@@ -2,7 +2,7 @@ package dbconfig
 
 import "fmt"
 
-type Article struct {
+type UserWallet struct {
 	ID    int
 	Title string
 	Body  []byte
@@ -10,17 +10,17 @@ type Article struct {
 
 const PostgresDriver = "postgres"
 
-const User = "UserExchange"
+const User = "userwallet"
 
 const Host = "localhost"
 
-const Port = "5433"
+const Port = "5432"
 
 const Password = "postgres"
 
-const DbName = "UserExchange"
+const DbName = "postgres"
 
-const TableName = "article"
+const TableName = "UserWallet"
 
 var DataSourceName = fmt.Sprintf("host=%s port=%s user=%s "+
 	"password=%s dbname=%s sslmode=disable", Host, Port, User, Password, DbName)
