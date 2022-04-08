@@ -224,7 +224,6 @@ func CreateDB() {
 
 		println("Table Created", res)
 	}
-
 }
 
 func main() {
