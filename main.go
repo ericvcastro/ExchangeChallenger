@@ -1,11 +1,13 @@
 package main
 
 import (
+	"context"
 	"database/sql"
 	"errors"
 	"exchange/ExchengeChalenger/dbconfig"
 	"net/http"
 	"strconv"
+	"time"
 
 	_ "github.com/lib/pq"
 
@@ -14,12 +16,6 @@ import (
 
 var db *sql.DB
 var err error
-
-func checkErr(err error) {
-	if err != nil {
-		panic(err.Error())
-	}
-}
 
 type WalletType struct {
 	Currency      string  `json:"currency"`
@@ -197,8 +193,7 @@ func withdrawToken(c *gin.Context) {
 
 // }
 
-func main() {
-
+func CreateDB() {
 	println("Acessando ", dbconfig.DbName)
 
 	db, err = sql.Open(dbconfig.PostgresDriver, dbconfig.DataSourceName)
@@ -211,6 +206,32 @@ func main() {
 	}
 
 	defer db.Close()
+
+	_, table_check := db.Query("select * from " + dbconfig.TableName + ";")
+
+	if table_check == nil {
+		println("Table is there")
+	} else {
+		query := "CREATE TABLE " + dbconfig.TableName + "(user_id int primary key, user_name text, id_wallet int)"
+		ctx, cancelfunc := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancelfunc()
+
+		res, err := db.ExecContext(ctx, query)
+
+		if err != nil {
+			panic(err)
+		}
+
+		println("Table Created", res)
+	}
+
+}
+
+func main() {
+
+	CreateDB()
+
+	// sqlSelect()
 
 	route := gin.Default()
 	route.GET("/investor", getAllInvestor)
