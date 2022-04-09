@@ -2,11 +2,9 @@ package main
 
 import (
 	"database/sql"
-	"errors"
 	"exchange/ExchengeChalenger/dbconfig"
 	"fmt"
 	"net/http"
-	"strconv"
 
 	_ "github.com/lib/pq"
 
@@ -16,133 +14,145 @@ import (
 var db *sql.DB
 var err error
 
-// var userDB = 0
-
-type WalletType struct {
-	Currency string  `json:"currency"`
-	Amount   float64 `json:"amount"`
-}
 type Investor struct {
-	ID     int          `json:"id"`
-	User   string       `json:"user"`
-	Wallet []WalletType `json:"wallet"`
+	ID        int    `json:"id"`
+	User_name string `json:"user"`
 }
 
-var investorWallet = []Investor{
-	{
-		ID: 1, User: "Ben",
-		Wallet: []WalletType{
-			{
-				Currency: "btc",
-				Amount:   0.2,
-			},
-			{
-				Currency: "doge",
-				Amount:   0.6,
-			},
-		},
-	},
-	{
-		ID: 2, User: "Eric",
-		Wallet: []WalletType{
-			{
-				Currency: "btc",
-				Amount:   3.0,
-			},
-			{
-				Currency: "doge",
-				Amount:   5000,
-			},
-		},
-	},
+type Wallet struct {
+	Wallet_id int `json:"wallet_id"`
+	User_id   int `json:"user_id"`
 }
 
-var testInvest []Investor
-
-func getAllInvestor(c *gin.Context) {
-	c.IndentedJSON(http.StatusOK, investorWallet)
+type Tokens struct {
+	Token_id int    `json:"token_id"`
+	Currency string `json:"currency"`
 }
 
-func findUser(nameUser string) (*Investor, error) {
-	for i, b := range investorWallet {
-		if b.User == nameUser {
-			return &investorWallet[i], nil
-		}
-	}
-
-	return nil, errors.New("Investor Not Found")
+type TokenWallet struct {
+	Token_id  int `json:"token_id"`
+	Wallet_id int `json:"wallet_id"`
+	amount    int `json:"amount"`
 }
 
-func depositToken(c *gin.Context) {
-	user, okUser := c.GetQuery("user")
-	currency, okCurrency := c.GetQuery("currency")
-	amount, okAmount := c.GetQuery("amount")
+// func getAllInvestor(c *gin.Context) {
+// 	c.IndentedJSON(http.StatusOK, investorWallet)
+// }
 
-	if !okUser || !okCurrency || !okAmount {
-		c.IndentedJSON(http.StatusBadRequest, gin.H{"message": "Missing any query parameter."})
-		return
-	}
+// func findUser(nameUser string) (*Investor, error) {
+// 	for i, b := range investorWallet {
+// 		if b.User == nameUser {
+// 			return &investorWallet[i], nil
+// 		}
+// 	}
 
-	investorAndYourWallet, err := findUser(user)
+// 	return nil, errors.New("Investor Not Found")
+// }
 
-	if err != nil {
-		c.IndentedJSON(http.StatusNotFound, gin.H{"message": "User Not found"})
-		return
-	}
+// func depositToken(c *gin.Context) {
+// 	user, okUser := c.GetQuery("user")
+// 	currency, okCurrency := c.GetQuery("currency")
+// 	amount, okAmount := c.GetQuery("amount")
 
-	amountFloat, errChangeToFloat := strconv.ParseFloat(amount, 64)
+// 	if !okUser || !okCurrency || !okAmount {
+// 		c.IndentedJSON(http.StatusBadRequest, gin.H{"message": "Missing any query parameter."})
+// 		return
+// 	}
 
-	if errChangeToFloat != nil {
-		c.IndentedJSON(http.StatusBadRequest, gin.H{"message": "Erro to change Amount to Float"})
-		return
-	}
+// 	investorAndYourWallet, err := findUser(user)
 
-	for index, elem := range investorAndYourWallet.Wallet {
-		if elem.Currency == currency && amountFloat > 0 {
-			investorAndYourWallet.Wallet[index].Amount += amountFloat
-		}
-	}
-	c.IndentedJSON(http.StatusOK, investorAndYourWallet)
-}
+// 	if err != nil {
+// 		c.IndentedJSON(http.StatusNotFound, gin.H{"message": "User Not found"})
+// 		return
+// 	}
 
-func withdrawToken(c *gin.Context) {
-	user, okUser := c.GetQuery("user")
-	currency, okCurrency := c.GetQuery("currency")
-	amount, okAmount := c.GetQuery("amount")
+// 	amountFloat, errChangeToFloat := strconv.ParseFloat(amount, 64)
 
-	if !okUser || !okCurrency || !okAmount {
-		c.IndentedJSON(http.StatusBadRequest, gin.H{"message": "Missing any query parameter."})
-		return
-	}
+// 	if errChangeToFloat != nil {
+// 		c.IndentedJSON(http.StatusBadRequest, gin.H{"message": "Erro to change Amount to Float"})
+// 		return
+// 	}
 
-	investorAndYourWallet, err := findUser(user)
+// 	for index, elem := range investorAndYourWallet.Wallet {
+// 		if elem.Currency == currency && amountFloat > 0 {
+// 			investorAndYourWallet.Wallet[index].Amount += amountFloat
+// 		}
+// 	}
+// 	c.IndentedJSON(http.StatusOK, investorAndYourWallet)
+// }
 
-	if err != nil {
-		c.IndentedJSON(http.StatusNotFound, gin.H{"message": "User Not found"})
-		return
-	}
+// func withdrawToken(c *gin.Context) {
+// 	user, okUser := c.GetQuery("user")
+// 	currency, okCurrency := c.GetQuery("currency")
+// 	amount, okAmount := c.GetQuery("amount")
 
-	amountFloat, errChangeToFloat := strconv.ParseFloat(amount, 64)
+// 	if !okUser || !okCurrency || !okAmount {
+// 		c.IndentedJSON(http.StatusBadRequest, gin.H{"message": "Missing any query parameter."})
+// 		return
+// 	}
 
-	if errChangeToFloat != nil {
-		c.IndentedJSON(http.StatusBadRequest, gin.H{"message": "Erro to change Amount to Float"})
-		return
-	}
+// 	investorAndYourWallet, err := findUser(user)
 
-	for index, elem := range investorAndYourWallet.Wallet {
-		if elem.Currency == currency && amountFloat > 0 {
-			if investorAndYourWallet.Wallet[index].Amount > amountFloat {
-				investorAndYourWallet.Wallet[index].Amount -= amountFloat
-			} else {
-				investorAndYourWallet.Wallet[index].Amount = 0
-			}
-		}
-	}
-	c.IndentedJSON(http.StatusOK, investorAndYourWallet)
-}
+// 	if err != nil {
+// 		c.IndentedJSON(http.StatusNotFound, gin.H{"message": "User Not found"})
+// 		return
+// 	}
+
+// 	amountFloat, errChangeToFloat := strconv.ParseFloat(amount, 64)
+
+// 	if errChangeToFloat != nil {
+// 		c.IndentedJSON(http.StatusBadRequest, gin.H{"message": "Erro to change Amount to Float"})
+// 		return
+// 	}
+
+// 	for index, elem := range investorAndYourWallet.Wallet {
+// 		if elem.Currency == currency && amountFloat > 0 {
+// 			if investorAndYourWallet.Wallet[index].Amount > amountFloat {
+// 				investorAndYourWallet.Wallet[index].Amount -= amountFloat
+// 			} else {
+// 				investorAndYourWallet.Wallet[index].Amount = 0
+// 			}
+// 		}
+// 	}
+// 	c.IndentedJSON(http.StatusOK, investorAndYourWallet)
+// }
 
 func Deposit(c *gin.Context) {
+	user, okUser := c.GetQuery("user")
+	currency, okCurrency := c.GetQuery("currency")
+	amount, okAmount := c.GetQuery("amount")
 
+	if !okUser || !okCurrency || !okAmount {
+		c.IndentedJSON(http.StatusBadRequest, gin.H{"message": "Missing any query parameter."})
+		return
+	}
+	// Recuperando o User no DB
+	println(`currency: ` + currency)
+	println(`amount: ` + amount)
+	username := SelectUserToTable(user, dbconfig.TableName)
+	println(username.ID)
+}
+
+func SelectUserToTable(user string, table string) Investor {
+	query := `select * from ` + table
+	row, err := db.Query(query)
+	if err != nil {
+		panic(err)
+	}
+	defer row.Close()
+	// mainUser := []Investor{}
+
+	investor := Investor{}
+	for row.Next() {
+		err := row.Scan(&investor.ID, &investor.User_name)
+		if err != nil {
+			panic(err)
+		}
+		if investor.User_name == user {
+			break
+		}
+	}
+	return investor
 }
 
 func SelectDataDB(name string) {
@@ -153,14 +163,17 @@ func SelectDataDB(name string) {
 	}
 	defer row.Close()
 
+	investor := dbconfig.UserWallet{}
 	for row.Next() {
-		investor := dbconfig.UserWallet{}
 		err := row.Scan(&investor.ID, &investor.User)
 		if err != nil {
 			panic(err)
 		}
-		fmt.Println(investor)
+		// if investor.User == name {
+		// 	return (investor)
+		// }
 	}
+	fmt.Println(investor)
 }
 
 func UpdateDB() {
@@ -196,8 +209,8 @@ func main() {
 	SelectDataDB("ben")
 
 	route := gin.Default()
-	route.GET("/investor", getAllInvestor)
-	route.PATCH("/deposit", depositToken)
-	route.PATCH("/withdraw", withdrawToken)
+	// route.GET("/investor", getAllInvestor)
+	route.PATCH("/deposit", Deposit)
+	// route.PATCH("/withdraw", withdrawToken)
 	route.Run("localhost:8080")
 }
