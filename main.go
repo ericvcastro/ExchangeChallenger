@@ -1,13 +1,12 @@
 package main
 
 import (
-	"context"
 	"database/sql"
 	"errors"
 	"exchange/ExchengeChalenger/dbconfig"
+	"fmt"
 	"net/http"
 	"strconv"
-	"time"
 
 	_ "github.com/lib/pq"
 
@@ -16,23 +15,17 @@ import (
 
 var db *sql.DB
 var err error
-var userDB = 0
+
+// var userDB = 0
 
 type WalletType struct {
-	Currency      string  `json:"currency"`
-	Amount        float64 `json:"amount"`
-	PriceInDollar float64 `json:"priceInDollar"`
-	PriceInEuro   float64 `json:"priceInEuro"`
-	TimeRateUsed  string  `json:"timeRateUsed"`
-	TotalEuros    float64 `json:"totalEuros"`
-	TotalDollar   float64 `json:"totalDollar"`
+	Currency string  `json:"currency"`
+	Amount   float64 `json:"amount"`
 }
 type Investor struct {
-	ID                     int          `json:"id"`
-	User                   string       `json:"user"`
-	Wallet                 []WalletType `json:"wallet"`
-	TotalAllCurrencyEuro   float64      `json:"totalAllCurrencyEuro"`
-	TotalAllCurrencyDollar float64      `json:totalAllCurrencyDollar`
+	ID     int          `json:"id"`
+	User   string       `json:"user"`
+	Wallet []WalletType `json:"wallet"`
 }
 
 var investorWallet = []Investor{
@@ -40,51 +33,27 @@ var investorWallet = []Investor{
 		ID: 1, User: "Ben",
 		Wallet: []WalletType{
 			{
-				Currency:      "btc",
-				Amount:        0.2,
-				PriceInDollar: 46285.90,
-				PriceInEuro:   39438.60,
-				TimeRateUsed:  "08/09/2021 23:34",
-				TotalEuros:    9257.18,
-				TotalDollar:   7887.72,
+				Currency: "btc",
+				Amount:   0.2,
 			},
 			{
-				Currency:      "doge",
-				Amount:        0.6,
-				PriceInDollar: 0.25447,
-				PriceInEuro:   0.21942,
-				TimeRateUsed:  "08/09/2021 23:34",
-				TotalEuros:    0.152682,
-				TotalDollar:   0.131652,
+				Currency: "doge",
+				Amount:   0.6,
 			},
 		},
-		TotalAllCurrencyEuro:   9257.332682,
-		TotalAllCurrencyDollar: 7887.851652,
 	},
 	{
 		ID: 2, User: "Eric",
 		Wallet: []WalletType{
 			{
-				Currency:      "btc",
-				Amount:        3.0,
-				PriceInDollar: 46285.90,
-				PriceInEuro:   39438.60,
-				TimeRateUsed:  "08/09/2021 23:34",
-				TotalEuros:    118315.80,
-				TotalDollar:   138857.70,
+				Currency: "btc",
+				Amount:   3.0,
 			},
 			{
-				Currency:      "doge",
-				Amount:        5000,
-				PriceInDollar: 0.25447,
-				PriceInEuro:   0.21942,
-				TimeRateUsed:  "08/09/2021 23:34",
-				TotalEuros:    1097.10,
-				TotalDollar:   1272.35,
+				Currency: "doge",
+				Amount:   5000,
 			},
 		},
-		TotalAllCurrencyEuro:   228025.80,
-		TotalAllCurrencyDollar: 140130.05,
 	},
 }
 
@@ -172,7 +141,38 @@ func withdrawToken(c *gin.Context) {
 	c.IndentedJSON(http.StatusOK, investorAndYourWallet)
 }
 
-func CreateDB() {
+func Deposit(c *gin.Context) {
+
+}
+
+func SelectDataDB(name string) {
+	query := `select * from ` + dbconfig.TableName
+	row, err := db.Query(query)
+	if err != nil {
+		panic(err)
+	}
+	defer row.Close()
+
+	for row.Next() {
+		investor := dbconfig.UserWallet{}
+		err := row.Scan(&investor.ID, &investor.User)
+		if err != nil {
+			panic(err)
+		}
+		fmt.Println(investor)
+	}
+}
+
+func UpdateDB() {
+	query := `update ` + dbconfig.TableName + ` SET user_name = 'Eric' WHERE user_id = 2`
+	row, err := db.Query(query)
+	if err != nil {
+		panic(err)
+	}
+	defer row.Close()
+}
+
+func main() {
 	println("Acessando ", dbconfig.DbName)
 
 	db, err = sql.Open(dbconfig.PostgresDriver, dbconfig.DataSourceName)
@@ -187,58 +187,13 @@ func CreateDB() {
 	defer db.Close()
 
 	_, table_check := db.Query("select * from " + dbconfig.TableName + ";")
-
 	if table_check == nil {
 		println("Table is there")
 	} else {
-		query := "CREATE TABLE " + dbconfig.TableName + `(user_id int primary key not null, user_name text);`
-		ctx, cancelfunc := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancelfunc()
-
-		res, err := db.ExecContext(ctx, query)
-
-		if err != nil {
-			panic(err)
-		}
-		println("Table Created", res)
+		dbconfig.CreateDB(db)
 	}
 
-	addValuesToTable := `INSERT INTO ` + dbconfig.TableName + ` VALUES ($1, $2)`
-	_, err = db.Exec(addValuesToTable, 1, "ben")
-	if err != nil {
-		panic(err)
-	}
-
-	_, tableCheck := db.Query("select * from Wallet;")
-
-	if tableCheck == nil {
-		println("Table is there")
-	} else {
-		query := `CREATE TABLE Wallet (ID int primary key not null);`
-		ctx, cancelfunc := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancelfunc()
-
-		res, err := db.ExecContext(ctx, query)
-
-		if err != nil {
-			panic(err)
-		}
-		println("Table Wallet Created", res)
-	}
-
-	queryWallet := `ALTER TABLE Wallet ADD COLUMN wallet_id INTEGER REFERENCES ` + dbconfig.TableName + ` (user_id);`
-	_, err = db.Exec(queryWallet)
-	if err != nil {
-		panic(err)
-	}
-	// queryToTableWallet := "CREATE TABLE " + dbconfig.TableName + `(wallet_id int primary key, user_name text, id_wallet int)`
-}
-
-func main() {
-
-	CreateDB()
-
-	// sqlSelect()
+	SelectDataDB("ben")
 
 	route := gin.Default()
 	route.GET("/investor", getAllInvestor)
