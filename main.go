@@ -16,6 +16,7 @@ import (
 
 var db *sql.DB
 var err error
+var userDB = 0
 
 type WalletType struct {
 	Currency      string  `json:"currency"`
@@ -86,6 +87,8 @@ var investorWallet = []Investor{
 		TotalAllCurrencyDollar: 140130.05,
 	},
 }
+
+var testInvest []Investor
 
 func getAllInvestor(c *gin.Context) {
 	c.IndentedJSON(http.StatusOK, investorWallet)
@@ -169,30 +172,6 @@ func withdrawToken(c *gin.Context) {
 	c.IndentedJSON(http.StatusOK, investorAndYourWallet)
 }
 
-// func balanceInvestor(c *gin.Context) {
-// 	user, okUser := c.GetQuery("user")
-
-// 	if !okUser {
-// 		c.IndentedJSON(http.StatusBadRequest, gin.H{"message": "Missing any query parameter."})
-// 		return
-// 	}
-
-// 	investorAndYourWallet, err := findUser(user)
-
-// 	if err != nil {
-// 		c.IndentedJSON(http.StatusNotFound, gin.H{"message": "User Not found"})
-// 		return
-// 	}
-
-// 	tmpEuro := 0
-// 	tmpDollar := 0
-
-// 	for index, elem := range investorAndYourWallet.Wallet {
-
-// 	}
-
-// }
-
 func CreateDB() {
 	println("Acessando ", dbconfig.DbName)
 
@@ -212,7 +191,7 @@ func CreateDB() {
 	if table_check == nil {
 		println("Table is there")
 	} else {
-		query := "CREATE TABLE " + dbconfig.TableName + "(user_id int primary key, user_name text, id_wallet int)"
+		query := "CREATE TABLE " + dbconfig.TableName + `(user_id int primary key not null, user_name text);`
 		ctx, cancelfunc := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancelfunc()
 
@@ -221,9 +200,38 @@ func CreateDB() {
 		if err != nil {
 			panic(err)
 		}
-
 		println("Table Created", res)
 	}
+
+	addValuesToTable := `INSERT INTO ` + dbconfig.TableName + ` VALUES ($1, $2)`
+	_, err = db.Exec(addValuesToTable, 1, "ben")
+	if err != nil {
+		panic(err)
+	}
+
+	_, tableCheck := db.Query("select * from Wallet;")
+
+	if tableCheck == nil {
+		println("Table is there")
+	} else {
+		query := `CREATE TABLE Wallet (ID int primary key not null);`
+		ctx, cancelfunc := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancelfunc()
+
+		res, err := db.ExecContext(ctx, query)
+
+		if err != nil {
+			panic(err)
+		}
+		println("Table Wallet Created", res)
+	}
+
+	queryWallet := `ALTER TABLE Wallet ADD COLUMN wallet_id INTEGER REFERENCES ` + dbconfig.TableName + ` (user_id);`
+	_, err = db.Exec(queryWallet)
+	if err != nil {
+		panic(err)
+	}
+	// queryToTableWallet := "CREATE TABLE " + dbconfig.TableName + `(wallet_id int primary key, user_name text, id_wallet int)`
 }
 
 func main() {
