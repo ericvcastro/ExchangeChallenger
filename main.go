@@ -3,7 +3,6 @@ package main
 import (
 	"database/sql"
 	"exchange/ExchengeChalenger/dbconfig"
-	"fmt"
 	"net/http"
 	"strconv"
 
@@ -36,6 +35,8 @@ type TokenWallet struct {
 	Amount    float64 `json:"amount"`
 }
 
+type Balence
+
 func Deposit(c *gin.Context) {
 	user, okUser := c.GetQuery("user")
 	currency, okCurrency := c.GetQuery("currency")
@@ -56,7 +57,7 @@ func Deposit(c *gin.Context) {
 
 	// Recuperando o Montante do token do usuário
 	amountSaved := SelectAmountOfTable(tokenId.Token_id, walletId.Wallet_id, "tokenwallet")
-	fmt.Println(amountSaved)
+
 	if amountSaved.Token_id != 0 && amountSaved.Wallet_id != 0 {
 		amountFloat, err := strconv.ParseFloat(amount, 64)
 		if err != nil {
@@ -68,7 +69,53 @@ func Deposit(c *gin.Context) {
 		walletIdString := strconv.Itoa(walletId.Wallet_id)
 		queryWhere := `token_id = ` + tokenIdString + ` AND wallet_id = ` + walletIdString
 		UpdateDB("tokenwallet", "amount", amountstring, queryWhere)
+		c.IndentedJSON(http.StatusOK, gin.H{"status": 200, "message": "Update amount sucess"})
+	} else if amountSaved.Token_id == 0 && amountSaved.Wallet_id == 0 {
+		c.IndentedJSON(http.StatusBadRequest, gin.H{"status": 400, "message": "Bad Request"})
 	}
+}
+
+func Withdraw(c *gin.Context) {
+	user, okUser := c.GetQuery("user")
+	currency, okCurrency := c.GetQuery("currency")
+	amount, okAmount := c.GetQuery("amount")
+
+	if !okUser || !okCurrency || !okAmount {
+		c.IndentedJSON(http.StatusBadRequest, gin.H{"message": "Missing any query parameter."})
+		return
+	}
+	// Recuperando o User no DB
+	userId := SelectUserToTable(user, dbconfig.TableName)
+
+	// Recuperando o Wallet ID do User no DB
+	walletId := SelectWalletToTable(userId.ID, "wallet")
+
+	// Recuperando o token ID no DB
+	tokenId := SelectTokenIdToTable(currency, "tokens")
+
+	// Recuperando o Montante do token do usuário
+	amountSaved := SelectAmountOfTable(tokenId.Token_id, walletId.Wallet_id, "tokenwallet")
+
+	if amountSaved.Token_id != 0 && amountSaved.Wallet_id != 0 {
+		amountFloat, err := strconv.ParseFloat(amount, 64)
+		if err != nil {
+			panic(err)
+		}
+		newAmount := amountSaved.Amount - amountFloat
+		amountstring := strconv.FormatFloat(newAmount, 'E', -1, 64)
+		tokenIdString := strconv.Itoa(tokenId.Token_id)
+		walletIdString := strconv.Itoa(walletId.Wallet_id)
+		queryWhere := `token_id = ` + tokenIdString + ` AND wallet_id = ` + walletIdString
+		UpdateDB("tokenwallet", "amount", amountstring, queryWhere)
+
+		c.IndentedJSON(http.StatusOK, gin.H{"status": 200, "message": "Update amount sucess"})
+	} else if amountSaved.Token_id == 0 && amountSaved.Wallet_id == 0 {
+		c.IndentedJSON(http.StatusBadRequest, gin.H{"status": 400, "message": "Bad Request"})
+	}
+}
+
+func Balance(c *gin.Context) {
+
 }
 
 func SelectUserToTable(user string, table string) Investor {
@@ -194,6 +241,6 @@ func main() {
 	route := gin.Default()
 	// route.GET("/investor", getAllInvestor)
 	route.PATCH("/deposit", Deposit)
-	// route.PATCH("/withdraw", withdrawToken)
+	route.PATCH("/withdraw", Withdraw)
 	route.Run("localhost:8080")
 }
