@@ -87,7 +87,7 @@ func CreateDB(db *sql.DB) {
 		panic(err)
 	}
 
-	query = `CREATE TABLE tokens (token_id int primary key not null, currency text);`
+	query = `CREATE TABLE tokens (token_id int primary key not null, currency text, price_dollar float, price_euro float, time_rate text);`
 	ctx, cancelfunc = context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancelfunc()
 
@@ -98,24 +98,24 @@ func CreateDB(db *sql.DB) {
 	}
 	println("Table tokens Created", res)
 
-	addValuesToTable = `INSERT INTO tokens VALUES ($1, $2)`
-	_, err = db.Exec(addValuesToTable, 1, "btc")
+	addValuesToTable = `INSERT INTO tokens VALUES ($1, $2, $3, $4, $5)`
+	_, err = db.Exec(addValuesToTable, 1, "btc", 42789.71, 39342.13, "08/04/2022 13:57")
 	if err != nil {
 		panic(err)
 	}
-	_, err = db.Exec(addValuesToTable, 2, "doge")
+	_, err = db.Exec(addValuesToTable, 2, "doge", 0.1534, 0.141, "08/04/2022 13:57")
 	if err != nil {
 		panic(err)
 	}
-	_, err = db.Exec(addValuesToTable, 3, "eth")
+	_, err = db.Exec(addValuesToTable, 3, "eth", 3273.28, 3009.50, "08/04/2022 13:57")
 	if err != nil {
 		panic(err)
 	}
-	_, err = db.Exec(addValuesToTable, 4, "ada")
+	_, err = db.Exec(addValuesToTable, 4, "ada", 1.05, 0.9616, "08/04/2022 13:57")
 	if err != nil {
 		panic(err)
 	}
-	_, err = db.Exec(addValuesToTable, 5, "xrp")
+	_, err = db.Exec(addValuesToTable, 5, "xrp", 0.7621, 0.7007, "08/04/2022 13:57")
 	if err != nil {
 		panic(err)
 	}
