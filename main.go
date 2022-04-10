@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"time"
 
 	_ "github.com/lib/pq"
 
@@ -55,6 +56,12 @@ type BalanceType struct {
 	TotalDollars float64       `json:"total_Dollars"`
 }
 
+type HistoryType struct {
+	User_id      int    `json:"user_id"`
+	Transaction  string `json:"transaction"`
+	TimeRealized string `json:"time_realized"`
+}
+
 func Deposit(c *gin.Context) {
 	user, okUser := c.GetQuery("user")
 	currency, okCurrency := c.GetQuery("currency")
@@ -81,15 +88,26 @@ func Deposit(c *gin.Context) {
 		if err != nil {
 			panic(err)
 		}
+
 		newAmount := amountSaved.Amount + amountFloat
+
 		amountstring := strconv.FormatFloat(newAmount, 'E', -1, 64)
 		tokenIdString := strconv.Itoa(tokenId.Token_id)
 		walletIdString := strconv.Itoa(walletId.Wallet_id)
+
 		queryWhere := `token_id = ` + tokenIdString + ` AND wallet_id = ` + walletIdString
 		UpdateDB("tokenwallet", "amount", amountstring, queryWhere)
+
+		currentTime := time.Now()
+
+		addValuesTable("history", userId.ID, "deposit", currentTime.Format("2006-01-02 15:04:05"))
 		c.IndentedJSON(http.StatusOK, gin.H{"status": 200, "message": "Update amount sucess"})
 	} else if amountSaved.Token_id == 0 && amountSaved.Wallet_id == 0 {
-		c.IndentedJSON(http.StatusBadRequest, gin.H{"status": 400, "message": "Bad Request"})
+		amountFloat, err := strconv.ParseFloat(amount, 64)
+		if err != nil {
+			panic(err)
+		}
+		createValuesTableWallet("tokenwallet", tokenId.Token_id, walletId.Wallet_id, amountFloat)
 	}
 }
 
@@ -128,6 +146,9 @@ func Withdraw(c *gin.Context) {
 		walletIdString := strconv.Itoa(walletId.Wallet_id)
 		queryWhere := `token_id = ` + tokenIdString + ` AND wallet_id = ` + walletIdString
 		UpdateDB("tokenwallet", "amount", amountstring, queryWhere)
+
+		currentTime := time.Now()
+		addValuesTable("history", userId.ID, "withdraw", currentTime.Format("2006-01-02 15:04:05"))
 
 		c.IndentedJSON(http.StatusOK, gin.H{"status": 200, "message": "Update amount sucess"})
 	} else if amountSaved.Token_id == 0 && amountSaved.Wallet_id == 0 {
@@ -181,6 +202,38 @@ func Balance(c *gin.Context) {
 	c.IndentedJSON(http.StatusOK, balance)
 }
 
+func History(c *gin.Context) {
+	user, okUser := c.GetQuery("user")
+	if !okUser {
+		c.IndentedJSON(http.StatusBadRequest, gin.H{"message": "Missing any query parameter."})
+		return
+	}
+
+	userInfos := SelectUserToTable(user, dbconfig.TableName)
+
+	historyUser := SelectAllHistoryUser(userInfos.ID, "history")
+
+	c.IndentedJSON(http.StatusOK, historyUser)
+}
+
+func createValuesTableWallet(table string, token_id int, user_id int, amount float64) {
+	addValuesToTable := `INSERT INTO ` + table + ` VALUES ($1, $2, $3)`
+	println("eric: " + addValuesToTable)
+	_, err = db.Exec(addValuesToTable, token_id, token_id, amount)
+	if err != nil {
+		panic(err)
+	}
+}
+
+func addValuesTable(table string, user_id int, transaction string, time_realized string) {
+	addValuesToTable := `INSERT INTO ` + table + ` VALUES ($1, $2, $3)`
+	println("eric: " + addValuesToTable)
+	_, err = db.Exec(addValuesToTable, user_id, transaction, time_realized)
+	if err != nil {
+		panic(err)
+	}
+}
+
 func SelectAllTokens(wallet_id int, table string) []TokenWallet {
 	query := `select * from ` + table
 	row, err := db.Query(query)
@@ -202,6 +255,29 @@ func SelectAllTokens(wallet_id int, table string) []TokenWallet {
 		}
 	}
 	return tokensWallet
+}
+
+func SelectAllHistoryUser(user_id int, table string) []HistoryType {
+	query := `select * from ` + table
+	row, err := db.Query(query)
+	if err != nil {
+		panic(err)
+	}
+	defer row.Close()
+
+	userHistory := make([]HistoryType, 0)
+	history := HistoryType{}
+	for row.Next() {
+		err := row.Scan(&history.User_id, &history.Transaction, &history.TimeRealized)
+		if err != nil {
+			panic(err)
+		}
+
+		if history.User_id == user_id {
+			userHistory = append(userHistory, history)
+		}
+	}
+	return userHistory
 }
 
 func SelectUserToTable(user string, table string) Investor {
@@ -350,5 +426,6 @@ func main() {
 	route.PATCH("/deposit", Deposit)
 	route.PATCH("/withdraw", Withdraw)
 	route.GET("/balance", Balance)
+	route.GET("/history", History)
 	route.Run("localhost:8080")
 }
