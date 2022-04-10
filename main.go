@@ -5,6 +5,7 @@ import (
 	"exchange/ExchengeChalenger/dbconfig"
 	"fmt"
 	"net/http"
+	"strconv"
 
 	_ "github.com/lib/pq"
 
@@ -30,92 +31,10 @@ type Tokens struct {
 }
 
 type TokenWallet struct {
-	Token_id  int `json:"token_id"`
-	Wallet_id int `json:"wallet_id"`
-	amount    int `json:"amount"`
+	Token_id  int     `json:"token_id"`
+	Wallet_id int     `json:"wallet_id"`
+	Amount    float64 `json:"amount"`
 }
-
-// func getAllInvestor(c *gin.Context) {
-// 	c.IndentedJSON(http.StatusOK, investorWallet)
-// }
-
-// func findUser(nameUser string) (*Investor, error) {
-// 	for i, b := range investorWallet {
-// 		if b.User == nameUser {
-// 			return &investorWallet[i], nil
-// 		}
-// 	}
-
-// 	return nil, errors.New("Investor Not Found")
-// }
-
-// func depositToken(c *gin.Context) {
-// 	user, okUser := c.GetQuery("user")
-// 	currency, okCurrency := c.GetQuery("currency")
-// 	amount, okAmount := c.GetQuery("amount")
-
-// 	if !okUser || !okCurrency || !okAmount {
-// 		c.IndentedJSON(http.StatusBadRequest, gin.H{"message": "Missing any query parameter."})
-// 		return
-// 	}
-
-// 	investorAndYourWallet, err := findUser(user)
-
-// 	if err != nil {
-// 		c.IndentedJSON(http.StatusNotFound, gin.H{"message": "User Not found"})
-// 		return
-// 	}
-
-// 	amountFloat, errChangeToFloat := strconv.ParseFloat(amount, 64)
-
-// 	if errChangeToFloat != nil {
-// 		c.IndentedJSON(http.StatusBadRequest, gin.H{"message": "Erro to change Amount to Float"})
-// 		return
-// 	}
-
-// 	for index, elem := range investorAndYourWallet.Wallet {
-// 		if elem.Currency == currency && amountFloat > 0 {
-// 			investorAndYourWallet.Wallet[index].Amount += amountFloat
-// 		}
-// 	}
-// 	c.IndentedJSON(http.StatusOK, investorAndYourWallet)
-// }
-
-// func withdrawToken(c *gin.Context) {
-// 	user, okUser := c.GetQuery("user")
-// 	currency, okCurrency := c.GetQuery("currency")
-// 	amount, okAmount := c.GetQuery("amount")
-
-// 	if !okUser || !okCurrency || !okAmount {
-// 		c.IndentedJSON(http.StatusBadRequest, gin.H{"message": "Missing any query parameter."})
-// 		return
-// 	}
-
-// 	investorAndYourWallet, err := findUser(user)
-
-// 	if err != nil {
-// 		c.IndentedJSON(http.StatusNotFound, gin.H{"message": "User Not found"})
-// 		return
-// 	}
-
-// 	amountFloat, errChangeToFloat := strconv.ParseFloat(amount, 64)
-
-// 	if errChangeToFloat != nil {
-// 		c.IndentedJSON(http.StatusBadRequest, gin.H{"message": "Erro to change Amount to Float"})
-// 		return
-// 	}
-
-// 	for index, elem := range investorAndYourWallet.Wallet {
-// 		if elem.Currency == currency && amountFloat > 0 {
-// 			if investorAndYourWallet.Wallet[index].Amount > amountFloat {
-// 				investorAndYourWallet.Wallet[index].Amount -= amountFloat
-// 			} else {
-// 				investorAndYourWallet.Wallet[index].Amount = 0
-// 			}
-// 		}
-// 	}
-// 	c.IndentedJSON(http.StatusOK, investorAndYourWallet)
-// }
 
 func Deposit(c *gin.Context) {
 	user, okUser := c.GetQuery("user")
@@ -127,10 +46,29 @@ func Deposit(c *gin.Context) {
 		return
 	}
 	// Recuperando o User no DB
-	println(`currency: ` + currency)
-	println(`amount: ` + amount)
-	username := SelectUserToTable(user, dbconfig.TableName)
-	println(username.ID)
+	userId := SelectUserToTable(user, dbconfig.TableName)
+
+	// Recuperando o Wallet ID do User no DB
+	walletId := SelectWalletToTable(userId.ID, "wallet")
+
+	// Recuperando o token ID no DB
+	tokenId := SelectTokenIdToTable(currency, "tokens")
+
+	// Recuperando o Montante do token do usuário
+	amountSaved := SelectAmountOfTable(tokenId.Token_id, walletId.Wallet_id, "tokenwallet")
+	fmt.Println(amountSaved)
+	if amountSaved.Token_id != 0 && amountSaved.Wallet_id != 0 {
+		amountFloat, err := strconv.ParseFloat(amount, 64)
+		if err != nil {
+			panic(err)
+		}
+		newAmount := amountSaved.Amount + amountFloat
+		amountstring := strconv.FormatFloat(newAmount, 'E', -1, 64)
+		tokenIdString := strconv.Itoa(tokenId.Token_id)
+		walletIdString := strconv.Itoa(walletId.Wallet_id)
+		queryWhere := `token_id = ` + tokenIdString + ` AND wallet_id = ` + walletIdString
+		UpdateDB("tokenwallet", "amount", amountstring, queryWhere)
+	}
 }
 
 func SelectUserToTable(user string, table string) Investor {
@@ -140,7 +78,6 @@ func SelectUserToTable(user string, table string) Investor {
 		panic(err)
 	}
 	defer row.Close()
-	// mainUser := []Investor{}
 
 	investor := Investor{}
 	for row.Next() {
@@ -155,29 +92,77 @@ func SelectUserToTable(user string, table string) Investor {
 	return investor
 }
 
-func SelectDataDB(name string) {
-	query := `select * from ` + dbconfig.TableName
+func SelectWalletToTable(user_Id int, table string) Wallet {
+	query := `select * from ` + table
 	row, err := db.Query(query)
 	if err != nil {
 		panic(err)
 	}
 	defer row.Close()
 
-	investor := dbconfig.UserWallet{}
+	wallet := Wallet{}
 	for row.Next() {
-		err := row.Scan(&investor.ID, &investor.User)
+		err := row.Scan(&wallet.Wallet_id, &wallet.User_id)
 		if err != nil {
 			panic(err)
 		}
-		// if investor.User == name {
-		// 	return (investor)
-		// }
+		if wallet.Wallet_id == user_Id {
+			break
+		}
 	}
-	fmt.Println(investor)
+	return wallet
 }
 
-func UpdateDB() {
-	query := `update ` + dbconfig.TableName + ` SET user_name = 'Eric' WHERE user_id = 2`
+func SelectTokenIdToTable(token_name string, table string) Tokens {
+	query := `select * from ` + table
+	row, err := db.Query(query)
+	if err != nil {
+		panic(err)
+	}
+	defer row.Close()
+
+	token := Tokens{}
+	for row.Next() {
+		err := row.Scan(&token.Token_id, &token.Currency)
+		if err != nil {
+			panic(err)
+		}
+		if token.Currency == token_name {
+			break
+		}
+	}
+	return token
+}
+
+func SelectAmountOfTable(token_id int, wallet_id int, table string) TokenWallet {
+	query := `select * from ` + table
+	row, err := db.Query(query)
+	if err != nil {
+		panic(err)
+	}
+	defer row.Close()
+
+	userHaveToken := false
+	tokenSave := TokenWallet{}
+	for row.Next() {
+		err := row.Scan(&tokenSave.Token_id, &tokenSave.Wallet_id, &tokenSave.Amount)
+		if err != nil {
+			panic(err)
+		}
+		if tokenSave.Token_id == token_id && tokenSave.Wallet_id == wallet_id {
+			userHaveToken = true
+			break
+		}
+	}
+	if userHaveToken {
+		return tokenSave
+	}
+	emptyWallet := TokenWallet{}
+	return emptyWallet
+}
+
+func UpdateDB(table string, setCamp string, dataToUpdate string, whereModify string) {
+	query := `update ` + table + ` SET ` + setCamp + ` = ` + dataToUpdate + ` WHERE ` + whereModify
 	row, err := db.Query(query)
 	if err != nil {
 		panic(err)
@@ -205,8 +190,6 @@ func main() {
 	} else {
 		dbconfig.CreateDB(db)
 	}
-
-	SelectDataDB("ben")
 
 	route := gin.Default()
 	// route.GET("/investor", getAllInvestor)
