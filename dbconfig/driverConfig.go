@@ -139,4 +139,15 @@ func CreateDB(db *sql.DB) {
 	if err != nil {
 		panic(err)
 	}
+
+	query = `CREATE TABLE history (user_id int REFERENCES userwallet(user_id), transaction text, time_realized text);`
+	ctx, cancelfunc = context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancelfunc()
+
+	res, err = db.ExecContext(ctx, query)
+
+	if err != nil {
+		panic(err)
+	}
+	println("Table history Created", res)
 }
