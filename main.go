@@ -107,7 +107,7 @@ func Deposit(c *gin.Context) {
 		if err != nil {
 			panic(err)
 		}
-		createValuesTableWallet("tokenwallet", tokenId.Token_id, walletId.Wallet_id, amountFloat)
+		basicfuncs.createValuesTableWallet(db, "tokenwallet", tokenId.Token_id, walletId.Wallet_id, amountFloat)
 	}
 }
 
@@ -216,14 +216,14 @@ func History(c *gin.Context) {
 	c.IndentedJSON(http.StatusOK, historyUser)
 }
 
-func createValuesTableWallet(table string, token_id int, user_id int, amount float64) {
-	addValuesToTable := `INSERT INTO ` + table + ` VALUES ($1, $2, $3)`
-	println("eric: " + addValuesToTable)
-	_, err = db.Exec(addValuesToTable, token_id, token_id, amount)
-	if err != nil {
-		panic(err)
-	}
-}
+// func createValuesTableWallet(table string, token_id int, user_id int, amount float64) {
+// 	addValuesToTable := `INSERT INTO ` + table + ` VALUES ($1, $2, $3)`
+// 	println("eric: " + addValuesToTable)
+// 	_, err = db.Exec(addValuesToTable, token_id, token_id, amount)
+// 	if err != nil {
+// 		panic(err)
+// 	}
+// }
 
 func addValuesTable(table string, user_id int, transaction string, time_realized string) {
 	addValuesToTable := `INSERT INTO ` + table + ` VALUES ($1, $2, $3)`
