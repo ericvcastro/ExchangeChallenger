@@ -69,7 +69,7 @@ Por exemplo:
   http://localhost:8080/balance?user=ben
 ```
 
-## Balance
+## History
 E, por fim, verificamos o histórico de transação em que o usuário realizaou. E nela terá 1 query:
 
 #### User
