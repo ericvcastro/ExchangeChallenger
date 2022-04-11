@@ -10,35 +10,14 @@ import (
 
 	_ "github.com/lib/pq"
 
+	"exchange/ExchengeChalenger/basicfuncs"
+	"exchange/ExchengeChalenger/dbselect"
+
 	"github.com/gin-gonic/gin"
 )
 
 var db *sql.DB
 var err error
-
-type Investor struct {
-	ID        int    `json:"id"`
-	User_name string `json:"user"`
-}
-
-type Wallet struct {
-	Wallet_id int `json:"wallet_id"`
-	User_id   int `json:"user_id"`
-}
-
-type Tokens struct {
-	Token_id    int     `json:"token_id"`
-	Currency    string  `json:"currency"`
-	PriceDollar float64 `json:"price_dollar"`
-	PriceEuro   float64 `json:"price_euro"`
-	TimeRate    string  `json:"time_rate"`
-}
-
-type TokenWallet struct {
-	Token_id  int     `json:"token_id"`
-	Wallet_id int     `json:"wallet_id"`
-	Amount    float64 `json:"amount"`
-}
 
 type PerCurrency struct {
 	Currency               string  `json:"currency"`
@@ -56,12 +35,6 @@ type BalanceType struct {
 	TotalDollars float64       `json:"total_Dollars"`
 }
 
-type HistoryType struct {
-	User_id      int    `json:"user_id"`
-	Transaction  string `json:"transaction"`
-	TimeRealized string `json:"time_realized"`
-}
-
 func Deposit(c *gin.Context) {
 	user, okUser := c.GetQuery("user")
 	currency, okCurrency := c.GetQuery("currency")
@@ -72,16 +45,16 @@ func Deposit(c *gin.Context) {
 		return
 	}
 	// Recuperando o User no DB
-	userId := SelectUserToTable(user, dbconfig.TableName)
+	userId := dbselect.SelectUserToTable(db, user, dbconfig.TableName)
 
 	// Recuperando o Wallet ID do User no DB
-	walletId := SelectWalletToTable(userId.ID, "wallet")
+	walletId := dbselect.SelectWalletToTable(db, userId.ID, "wallet")
 
 	// Recuperando o token ID no DB
-	tokenId := SelectTokenIdToTable(currency, "tokens")
+	tokenId := dbselect.SelectTokenIdToTable(db, currency, "tokens")
 
 	// Recuperando o Montante do token do usuário
-	amountSaved := SelectAmountOfTable(tokenId.Token_id, walletId.Wallet_id, "tokenwallet")
+	amountSaved := dbselect.SelectAmountOfTable(db, tokenId.Token_id, walletId.Wallet_id, "tokenwallet")
 
 	if amountSaved.Token_id != 0 && amountSaved.Wallet_id != 0 {
 		amountFloat, err := strconv.ParseFloat(amount, 64)
@@ -96,18 +69,18 @@ func Deposit(c *gin.Context) {
 		walletIdString := strconv.Itoa(walletId.Wallet_id)
 
 		queryWhere := `token_id = ` + tokenIdString + ` AND wallet_id = ` + walletIdString
-		UpdateDB("tokenwallet", "amount", amountstring, queryWhere)
+		basicfuncs.UpdateDB(db, "tokenwallet", "amount", amountstring, queryWhere)
 
 		currentTime := time.Now()
 
-		addValuesTable("history", userId.ID, "deposit", currentTime.Format("2006-01-02 15:04:05"))
+		basicfuncs.AddValuesTable(db, "history", userId.ID, "deposit", currentTime.Format("2006-01-02 15:04:05"))
 		c.IndentedJSON(http.StatusOK, gin.H{"status": 200, "message": "Update amount sucess"})
 	} else if amountSaved.Token_id == 0 && amountSaved.Wallet_id == 0 {
 		amountFloat, err := strconv.ParseFloat(amount, 64)
 		if err != nil {
 			panic(err)
 		}
-		basicfuncs.createValuesTableWallet(db, "tokenwallet", tokenId.Token_id, walletId.Wallet_id, amountFloat)
+		basicfuncs.CreateValuesTableWallet(db, "tokenwallet", tokenId.Token_id, walletId.Wallet_id, amountFloat)
 	}
 }
 
@@ -121,16 +94,16 @@ func Withdraw(c *gin.Context) {
 		return
 	}
 	// Recuperando o User no DB
-	userId := SelectUserToTable(user, dbconfig.TableName)
+	userId := dbselect.SelectUserToTable(db, user, dbconfig.TableName)
 
 	// Recuperando o Wallet ID do User no DB
-	walletId := SelectWalletToTable(userId.ID, "wallet")
+	walletId := dbselect.SelectWalletToTable(db, userId.ID, "wallet")
 
 	// Recuperando o token ID no DB
-	tokenId := SelectTokenIdToTable(currency, "tokens")
+	tokenId := dbselect.SelectTokenIdToTable(db, currency, "tokens")
 
 	// Recuperando o Montante do token do usuário
-	amountSaved := SelectAmountOfTable(tokenId.Token_id, walletId.Wallet_id, "tokenwallet")
+	amountSaved := dbselect.SelectAmountOfTable(db, tokenId.Token_id, walletId.Wallet_id, "tokenwallet")
 
 	if amountSaved.Token_id != 0 && amountSaved.Wallet_id != 0 {
 		amountFloat, err := strconv.ParseFloat(amount, 64)
@@ -145,10 +118,10 @@ func Withdraw(c *gin.Context) {
 		tokenIdString := strconv.Itoa(tokenId.Token_id)
 		walletIdString := strconv.Itoa(walletId.Wallet_id)
 		queryWhere := `token_id = ` + tokenIdString + ` AND wallet_id = ` + walletIdString
-		UpdateDB("tokenwallet", "amount", amountstring, queryWhere)
+		basicfuncs.UpdateDB(db, "tokenwallet", "amount", amountstring, queryWhere)
 
 		currentTime := time.Now()
-		addValuesTable("history", userId.ID, "withdraw", currentTime.Format("2006-01-02 15:04:05"))
+		basicfuncs.AddValuesTable(db, "history", userId.ID, "withdraw", currentTime.Format("2006-01-02 15:04:05"))
 
 		c.IndentedJSON(http.StatusOK, gin.H{"status": 200, "message": "Update amount sucess"})
 	} else if amountSaved.Token_id == 0 && amountSaved.Wallet_id == 0 {
@@ -164,19 +137,19 @@ func Balance(c *gin.Context) {
 	}
 
 	// Recuperando o User no DB
-	userId := SelectUserToTable(user, dbconfig.TableName)
+	userId := dbselect.SelectUserToTable(db, user, dbconfig.TableName)
 
 	// Recuperando o Wallet ID do User no DB
-	walletId := SelectWalletToTable(userId.ID, "wallet")
+	walletId := dbselect.SelectWalletToTable(db, userId.ID, "wallet")
 
-	tokensAlls := SelectAllTokens(walletId.Wallet_id, "tokenwallet")
+	tokensAlls := dbselect.SelectAllTokens(db, walletId.Wallet_id, "tokenwallet")
 
 	balance := BalanceType{}
 	balanceTotalEuro := 0.0
 	balanceTotalDollar := 0.0
 
 	for i, s := range tokensAlls {
-		infoTokens := SelectCurrencyToTable(s.Token_id, "tokens")
+		infoTokens := dbselect.SelectCurrencyToTable(db, s.Token_id, "tokens")
 
 		euroTotal := s.Amount * infoTokens.PriceEuro
 		balanceTotalEuro += euroTotal
@@ -209,195 +182,11 @@ func History(c *gin.Context) {
 		return
 	}
 
-	userInfos := SelectUserToTable(user, dbconfig.TableName)
+	userInfos := dbselect.SelectUserToTable(db, user, dbconfig.TableName)
 
-	historyUser := SelectAllHistoryUser(userInfos.ID, "history")
+	historyUser := dbselect.SelectAllHistoryUser(db, userInfos.ID, "history")
 
 	c.IndentedJSON(http.StatusOK, historyUser)
-}
-
-// func createValuesTableWallet(table string, token_id int, user_id int, amount float64) {
-// 	addValuesToTable := `INSERT INTO ` + table + ` VALUES ($1, $2, $3)`
-// 	println("eric: " + addValuesToTable)
-// 	_, err = db.Exec(addValuesToTable, token_id, token_id, amount)
-// 	if err != nil {
-// 		panic(err)
-// 	}
-// }
-
-func addValuesTable(table string, user_id int, transaction string, time_realized string) {
-	addValuesToTable := `INSERT INTO ` + table + ` VALUES ($1, $2, $3)`
-	println("eric: " + addValuesToTable)
-	_, err = db.Exec(addValuesToTable, user_id, transaction, time_realized)
-	if err != nil {
-		panic(err)
-	}
-}
-
-func SelectAllTokens(wallet_id int, table string) []TokenWallet {
-	query := `select * from ` + table
-	row, err := db.Query(query)
-	if err != nil {
-		panic(err)
-	}
-	defer row.Close()
-
-	tokensWallet := make([]TokenWallet, 0)
-	token := TokenWallet{}
-	for row.Next() {
-		err := row.Scan(&token.Token_id, &token.Wallet_id, &token.Amount)
-		if err != nil {
-			panic(err)
-		}
-
-		if token.Wallet_id == wallet_id {
-			tokensWallet = append(tokensWallet, token)
-		}
-	}
-	return tokensWallet
-}
-
-func SelectAllHistoryUser(user_id int, table string) []HistoryType {
-	query := `select * from ` + table
-	row, err := db.Query(query)
-	if err != nil {
-		panic(err)
-	}
-	defer row.Close()
-
-	userHistory := make([]HistoryType, 0)
-	history := HistoryType{}
-	for row.Next() {
-		err := row.Scan(&history.User_id, &history.Transaction, &history.TimeRealized)
-		if err != nil {
-			panic(err)
-		}
-
-		if history.User_id == user_id {
-			userHistory = append(userHistory, history)
-		}
-	}
-	return userHistory
-}
-
-func SelectUserToTable(user string, table string) Investor {
-	query := `select * from ` + table
-	row, err := db.Query(query)
-	if err != nil {
-		panic(err)
-	}
-	defer row.Close()
-
-	investor := Investor{}
-	for row.Next() {
-		err := row.Scan(&investor.ID, &investor.User_name)
-		if err != nil {
-			panic(err)
-		}
-		if investor.User_name == user {
-			break
-		}
-	}
-	return investor
-}
-
-func SelectWalletToTable(user_Id int, table string) Wallet {
-	query := `select * from ` + table
-	row, err := db.Query(query)
-	if err != nil {
-		panic(err)
-	}
-	defer row.Close()
-
-	wallet := Wallet{}
-	for row.Next() {
-		err := row.Scan(&wallet.Wallet_id, &wallet.User_id)
-		if err != nil {
-			panic(err)
-		}
-		if wallet.Wallet_id == user_Id {
-			break
-		}
-	}
-	return wallet
-}
-
-func SelectCurrencyToTable(token_id int, table string) Tokens {
-	query := `select * from ` + table
-	row, err := db.Query(query)
-	if err != nil {
-		panic(err)
-	}
-	defer row.Close()
-
-	token := Tokens{}
-	for row.Next() {
-		err := row.Scan(&token.Token_id, &token.Currency, &token.PriceDollar, &token.PriceEuro, &token.TimeRate)
-		if err != nil {
-			panic(err)
-		}
-		if token.Token_id == token_id {
-			break
-		}
-	}
-	return token
-}
-
-func SelectTokenIdToTable(token_name string, table string) Tokens {
-	query := `select * from ` + table
-	row, err := db.Query(query)
-	if err != nil {
-		panic(err)
-	}
-	defer row.Close()
-
-	token := Tokens{}
-	for row.Next() {
-		err := row.Scan(&token.Token_id, &token.Currency, &token.PriceDollar, &token.PriceEuro, &token.TimeRate)
-		if err != nil {
-			panic(err)
-		}
-		if token.Currency == token_name {
-			break
-		}
-	}
-	return token
-}
-
-func SelectAmountOfTable(token_id int, wallet_id int, table string) TokenWallet {
-	query := `select * from ` + table
-	row, err := db.Query(query)
-	if err != nil {
-		panic(err)
-	}
-	defer row.Close()
-
-	userHaveToken := false
-	tokenSave := TokenWallet{}
-	for row.Next() {
-		err := row.Scan(&tokenSave.Token_id, &tokenSave.Wallet_id, &tokenSave.Amount)
-		if err != nil {
-			panic(err)
-		}
-		if tokenSave.Token_id == token_id && tokenSave.Wallet_id == wallet_id {
-			userHaveToken = true
-			break
-		}
-	}
-	if userHaveToken {
-		return tokenSave
-	}
-	emptyWallet := TokenWallet{}
-	return emptyWallet
-}
-
-func UpdateDB(table string, setCamp string, dataToUpdate string, whereModify string) {
-	query := `update ` + table + ` SET ` + setCamp + ` = ` + dataToUpdate + ` WHERE ` + whereModify
-	row, err := db.Query(query)
-	if err != nil {
-		panic(err)
-	}
-	defer row.Close()
 }
 
 func main() {
@@ -422,7 +211,6 @@ func main() {
 	}
 
 	route := gin.Default()
-	// route.GET("/investor", getAllInvestor)
 	route.PATCH("/deposit", Deposit)
 	route.PATCH("/withdraw", Withdraw)
 	route.GET("/balance", Balance)
